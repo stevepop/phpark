@@ -29,6 +29,7 @@ func main() {
 
 	// Add commands
 	rootCmd.AddCommand(installCmd())
+	rootCmd.AddCommand(setupCmd())
 	rootCmd.AddCommand(parkCmd())
 	rootCmd.AddCommand(linkCmd())
 	rootCmd.AddCommand(unlinkCmd())
@@ -96,19 +97,47 @@ func runInstall() error {
 	fmt.Printf("Config file: %s\n", paths.Config)
 	fmt.Printf("Sites file: %s\n", paths.Sites)
 
-	// On Linux, try to start services
+	// On Linux, check for dependencies
 	if runtime.GOOS == "linux" {
+		fmt.Println("\n🔧 Checking system requirements...")
+
+		missingDeps := []string{}
+
+		// Check for nginx
+		if _, err := exec.LookPath("nginx"); err != nil {
+			missingDeps = append(missingDeps, "nginx")
+		}
+
+		// Check for dnsmasq
+		if _, err := exec.LookPath("dnsmasq"); err != nil {
+			missingDeps = append(missingDeps, "dnsmasq")
+		}
+
+		// Check for PHP
+		phpVersions, err := php.DetectPHPVersions()
+		if err != nil || len(phpVersions) == 0 {
+			missingDeps = append(missingDeps, "PHP-FPM")
+		}
+
+		if len(missingDeps) > 0 {
+			fmt.Println("\n⚠️  Missing dependencies detected:")
+			for _, dep := range missingDeps {
+				fmt.Printf("   - %s\n", dep)
+			}
+			fmt.Println("\n💡 Quick install: Run 'sudo phppark setup' to install everything")
+			fmt.Println("   Or install manually: sudo apt install nginx dnsmasq php8.2-fpm")
+			return nil
+		}
+
+		// Start services if all dependencies present
 		fmt.Println("\n🔧 Starting services...")
 
 		if err := services.StartNginx(); err != nil {
 			fmt.Printf("⚠️  Warning: Could not start nginx: %v\n", err)
-			fmt.Println("   You may need to install nginx: sudo apt install nginx")
 		} else {
 			fmt.Println("✅ Nginx started")
 		}
 
-		// Try to start PHP-FPM services
-		phpVersions, _ := php.DetectPHPVersions()
 		if len(phpVersions) > 0 {
 			for _, v := range phpVersions {
 				if err := services.StartPHPFPM(v.Version); err == nil {
@@ -122,6 +151,139 @@ func runInstall() error {
 	fmt.Println("  1. Review/edit config: cat ~/.phppark/config.yaml")
 	fmt.Println("  2. Park a directory: phppark park ~/sites")
 	fmt.Println("  3. Link a site: phppark link myapp")
+
+	return nil
+}
+
+func setupCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "setup",
+		Short: "Complete PHPark setup (install all dependencies)",
+		Long:  `Setup installs PHPark and all required dependencies (nginx, dnsmasq, PHP).`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runSetup()
+		},
+	}
+}
+
+func runSetup() error {
+	if runtime.GOOS != "linux" {
+		fmt.Println("❌ Setup command only available on Linux")
+		fmt.Println("   On macOS, install dependencies with Homebrew:")
+		fmt.Println("   brew install nginx dnsmasq php@8.2")
+		return fmt.Errorf("unsupported platform")
+	}
+
+	fmt.Println("🚀 PHPark Complete Setup")
+	fmt.Println("=" + strings.Repeat("=", 50))
+	fmt.Println("\nThis will install:")
+	fmt.Println("  • nginx (web server)")
+	fmt.Println("  • dnsmasq (DNS resolver)")
+	fmt.Println("  • PHP 8.2-FPM (with common extensions)")
+	fmt.Println("  • PHPark configuration")
+	fmt.Printf("\nContinue? (Y/n): ")
+
+	var response string
+	fmt.Scanln(&response)
+
+	if response != "" && response != "y" && response != "Y" && response != "yes" {
+		fmt.Println("Setup cancelled")
+		return nil
+	}
+
+	// Update package list first
+	fmt.Println("\n📦 Updating package list...")
+	cmd := exec.Command("apt-get", "update")
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("⚠️  Warning: apt-get update failed: %v\n", err)
+	}
+
+	// Install nginx
+	fmt.Println("\n📦 Installing nginx...")
+	cmd = exec.Command("apt-get", "install", "-y", "nginx")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to install nginx: %w", err)
+	}
+	fmt.Println("✅ Nginx installed")
+
+	// Install dnsmasq
+	fmt.Println("\n📦 Installing dnsmasq...")
+	cmd = exec.Command("apt-get", "install", "-y", "dnsmasq")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to install dnsmasq: %w", err)
+	}
+	fmt.Println("✅ dnsmasq installed")
+
+	// Install software-properties-common (for add-apt-repository)
+	fmt.Println("\n📦 Installing prerequisites...")
+	cmd = exec.Command("apt-get", "install", "-y", "software-properties-common")
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("⚠️  Warning: Could not install software-properties-common: %v\n", err)
+	}
+
+	// Install PHP 8.2
+	fmt.Println("\n📦 Installing PHP 8.2-FPM...")
+	if err := php.InstallPHP("8.2"); err != nil {
+		return fmt.Errorf("failed to install PHP: %w", err)
+	}
+
+	// Initialize PHPark
+	fmt.Println("\n🔧 Configuring PHPark...")
+
+	// Create directories
+	paths, err := config.GetPaths()
+	if err != nil {
+		return err
+	}
+
+	if err := paths.EnsureDirectories(); err != nil {
+		return fmt.Errorf("failed to create directories: %w", err)
+	}
+
+	// Create default config
+	defaultConfig := config.DefaultConfig()
+	defaultConfig.DefaultPHP = "8.2"
+	if err := config.SaveConfig(defaultConfig); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	// Create empty sites registry
+	emptySites := &config.SiteRegistry{Sites: []config.Site{}}
+	if err := config.SaveSites(emptySites); err != nil {
+		return fmt.Errorf("failed to save sites: %w", err)
+	}
+
+	// Start services
+	fmt.Println("\n🔧 Starting services...")
+
+	if err := services.StartNginx(); err != nil {
+		fmt.Printf("⚠️  Warning: Could not start nginx: %v\n", err)
+	} else {
+		fmt.Println("✅ Nginx started")
+	}
+
+	if err := services.StartPHPFPM("8.2"); err != nil {
+		fmt.Printf("⚠️  Warning: Could not start PHP-FPM: %v\n", err)
+	} else {
+		fmt.Println("✅ PHP 8.2-FPM started")
+	}
+
+	// Success message
+	fmt.Println("\n" + strings.Repeat("=", 50))
+	fmt.Println("✅ Setup complete!")
+	fmt.Println(strings.Repeat("=", 50))
+
+	fmt.Printf("\nConfiguration directory: %s\n", paths.Home)
+	fmt.Printf("Default PHP version: 8.2\n")
+
+	fmt.Println("\n📚 Try it out:")
+	fmt.Println("  mkdir -p ~/sites/myapp/public")
+	fmt.Println("  echo '<?php phpinfo(); ?>' > ~/sites/myapp/public/index.php")
+	fmt.Println("  cd ~/sites")
+	fmt.Println("  sudo phppark park")
+	fmt.Println("  curl -H 'Host: myapp.test' http://localhost")
+
+	fmt.Println("\n💡 Tip: Run 'phppark status' to see your configuration")
 
 	return nil
 }
