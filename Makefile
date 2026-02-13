@@ -15,8 +15,9 @@ build: $(GO_FILES)
 	go build -ldflags="-linkmode=external -X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/phppark
 	@if [ "$$(uname)" = "Darwin" ]; then \
 		echo "Code signing for macOS..."; \
-		codesign -s - $(BUILD_DIR)/$(BINARY_NAME); \
+		codesign -s - --force $(BUILD_DIR)/$(BINARY_NAME); \
 	fi
+
 # Build for Linux
 build-linux:
 	@echo "Building for Linux..."
