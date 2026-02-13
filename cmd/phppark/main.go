@@ -840,17 +840,56 @@ func runUse(phpVersion, siteName string) error {
 		return fmt.Errorf("failed to detect PHP versions: %w", err)
 	}
 
-	// Format version (allow "8.2" or "8.1")
+	// Format version (allow "8.2" or just "8.2")
 	phpVersion = php.FormatVersion(phpVersion)
 
-	// Validate PHP version exists
-	if !php.ValidatePHPVersion(phpVersion, versions) {
-		fmt.Printf("❌ PHP %s not found\n\n", phpVersion)
-		fmt.Println("Available versions:")
-		for _, v := range versions {
-			fmt.Printf("  - %s\n", v.Version)
+	// Check if version exists
+	versionExists := php.ValidatePHPVersion(phpVersion, versions)
+
+	if !versionExists {
+		fmt.Printf("❌ PHP %s is not installed\n\n", phpVersion)
+
+		// Show available versions
+		if len(versions) > 0 {
+			fmt.Println("Available versions:")
+			for _, v := range versions {
+				fmt.Printf("  - %s\n", v.Version)
+			}
+			fmt.Println()
 		}
-		return fmt.Errorf("invalid PHP version")
+
+		// Offer to install (only on Linux)
+		if runtime.GOOS == "linux" {
+			shouldInstall, err := php.PromptInstallPHP(phpVersion)
+			if err != nil {
+				return err
+			}
+
+			if shouldInstall {
+				if err := php.InstallPHP(phpVersion); err != nil {
+					return fmt.Errorf("installation failed: %w", err)
+				}
+
+				// Re-detect versions
+				versions, err = php.DetectPHPVersions()
+				if err != nil {
+					return fmt.Errorf("failed to detect PHP versions: %w", err)
+				}
+
+				// Verify installation
+				if !php.ValidatePHPVersion(phpVersion, versions) {
+					return fmt.Errorf("installation completed but PHP %s not detected", phpVersion)
+				}
+
+				fmt.Printf("\n✅ PHP %s is now available!\n\n", phpVersion)
+			} else {
+				return fmt.Errorf("PHP %s is required but not installed", phpVersion)
+			}
+		} else {
+			fmt.Println("On macOS, install with Homebrew:")
+			fmt.Printf("  brew install php@%s\n", phpVersion)
+			return fmt.Errorf("PHP %s not available", phpVersion)
+		}
 	}
 
 	// Load config
@@ -891,13 +930,17 @@ func runUse(phpVersion, siteName string) error {
 		return fmt.Errorf("failed to save sites: %w", err)
 	}
 
-	// Regenerate nginx config
-	if err := generateNginxConfig(site, cfg); err != nil {
-		return fmt.Errorf("failed to update nginx config: %w", err)
+	// Regenerate nginx config (with sudo on Linux)
+	if runtime.GOOS == "linux" {
+		fmt.Println("\n⚠️  Note: Regenerating config requires sudo")
+		fmt.Println("   Run: sudo phppark rebuild")
+	} else {
+		if err := generateNginxConfig(site, cfg); err != nil {
+			return fmt.Errorf("failed to update nginx config: %w", err)
+		}
 	}
 
 	fmt.Printf("✅ Set PHP %s for %s.%s\n", phpVersion, siteName, cfg.Domain)
-	fmt.Printf("   Config updated: ~/.phppark/nginx/%s.conf\n", siteName)
 
 	return nil
 }
