@@ -1068,8 +1068,27 @@ func runUse(phpVersion, siteName string) error {
 		}
 
 		fmt.Printf("✅ Set default PHP version to %s\n", phpVersion)
+
+		// Switch CLI version on Linux (like Herd does)
+		if runtime.GOOS == "linux" {
+			phpPath := fmt.Sprintf("/usr/bin/php%s", phpVersion)
+			cmd := exec.Command("update-alternatives", "--set", "php", phpPath)
+			if err := cmd.Run(); err != nil {
+				fmt.Printf("\n⚠️  Warning: Could not update CLI PHP: %v\n", err)
+				fmt.Printf("   Sites will use PHP %s via PHP-FPM\n", phpVersion)
+				fmt.Printf("   To manually switch CLI: sudo update-alternatives --set php %s\n", phpPath)
+			} else {
+				fmt.Printf("   ✅ CLI PHP switched to %s\n", phpVersion)
+			}
+		}
+
 		fmt.Println("\nNew sites will use PHP", phpVersion)
-		fmt.Println("To update existing sites, run: phppark rebuild")
+		fmt.Println("To update existing sites, run: sudo phppark rebuild")
+
+		if runtime.GOOS == "linux" {
+			fmt.Println("\n💡 Verify CLI change: php -v")
+		}
+
 		return nil
 	}
 
@@ -1092,17 +1111,8 @@ func runUse(phpVersion, siteName string) error {
 		return fmt.Errorf("failed to save sites: %w", err)
 	}
 
-	// Regenerate nginx config (with sudo on Linux)
-	if runtime.GOOS == "linux" {
-		fmt.Println("\n⚠️  Note: Regenerating config requires sudo")
-		fmt.Println("   Run: sudo phppark rebuild")
-	} else {
-		if err := generateNginxConfig(site, cfg); err != nil {
-			return fmt.Errorf("failed to update nginx config: %w", err)
-		}
-	}
-
 	fmt.Printf("✅ Set PHP %s for %s.%s\n", phpVersion, siteName, cfg.Domain)
+	fmt.Println("\n⚠️  Note: Run 'sudo phppark rebuild' to apply changes")
 
 	return nil
 }
