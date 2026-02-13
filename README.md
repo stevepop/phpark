@@ -92,7 +92,7 @@ MIT License - see [LICENSE](LICENSE)
 
 ## Author
 
-**Steve** - [stevepop](https://github.com/stevepop)
+**Steve Popoola** - [stevepop](https://github.com/stevepop)
 
 ---
 
