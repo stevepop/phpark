@@ -173,7 +173,7 @@ func runSetup() error {
 	fmt.Println("\nThis will install:")
 	fmt.Println("  • nginx (web server)")
 	fmt.Println("  • dnsmasq (DNS resolver)")
-	fmt.Println("  • PHP 8.2-FPM (with common extensions)")
+	fmt.Println("  • PHP 8.3-FPM (with common extensions)")
 	fmt.Println("  • PHPark configuration")
 	fmt.Printf("\nContinue? (Y/n): ")
 
@@ -208,7 +208,25 @@ func runSetup() error {
 	}
 	fmt.Println("✅ dnsmasq installed")
 
-	// Disable systemd-resolved's stub listener if it is occupying port 53.
+	// Install software-properties-common (for add-apt-repository)
+	fmt.Println("\n📦 Installing prerequisites...")
+	cmd = exec.Command("apt-get", "install", "-y", "software-properties-common")
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("⚠️  Warning: Could not install software-properties-common: %v\n", err)
+	}
+
+	// Install PHP 8.3
+	// NOTE: this must happen BEFORE we disable the systemd-resolved stub listener.
+	// Disabling the stub replaces /etc/resolv.conf with 127.0.0.1 (dnsmasq), but
+	// dnsmasq isn't running yet at this point — so any network operations (apt,
+	// add-apt-repository) would fail with DNS resolution errors.
+	fmt.Println("\n📦 Installing PHP 8.3-FPM...")
+	if err := php.InstallPHP("8.3"); err != nil {
+		return fmt.Errorf("failed to install PHP: %w", err)
+	}
+
+	// Now that all packages are installed (no more network ops needed), disable
+	// the systemd-resolved stub listener so dnsmasq can bind port 53.
 	// We only disable the stub — systemd-resolved keeps running so that VPN,
 	// DHCP, and NetworkManager DNS routing continue to work normally.
 	if dns.CheckSystemdResolvedConflict() {
@@ -221,19 +239,6 @@ func runSetup() error {
 		} else {
 			fmt.Println("   ✅ Stub listener disabled — systemd-resolved still running for VPN/DHCP DNS")
 		}
-	}
-
-	// Install software-properties-common (for add-apt-repository)
-	fmt.Println("\n📦 Installing prerequisites...")
-	cmd = exec.Command("apt-get", "install", "-y", "software-properties-common")
-	if err := cmd.Run(); err != nil {
-		fmt.Printf("⚠️  Warning: Could not install software-properties-common: %v\n", err)
-	}
-
-	// Install PHP 8.2
-	fmt.Println("\n📦 Installing PHP 8.2-FPM...")
-	if err := php.InstallPHP("8.2"); err != nil {
-		return fmt.Errorf("failed to install PHP: %w", err)
 	}
 
 	// Initialize PHPark
@@ -251,7 +256,7 @@ func runSetup() error {
 
 	// Create default config
 	defaultConfig := config.DefaultConfig()
-	defaultConfig.DefaultPHP = "8.2"
+	defaultConfig.DefaultPHP = "8.3"
 	if err := config.SaveConfig(defaultConfig); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
@@ -271,10 +276,10 @@ func runSetup() error {
 		fmt.Println("✅ Nginx started")
 	}
 
-	if err := services.StartPHPFPM("8.2"); err != nil {
+	if err := services.StartPHPFPM("8.3"); err != nil {
 		fmt.Printf("⚠️  Warning: Could not start PHP-FPM: %v\n", err)
 	} else {
-		fmt.Println("✅ PHP 8.2-FPM started")
+		fmt.Println("✅ PHP 8.3-FPM started")
 	}
 
 	// Success message
@@ -283,14 +288,15 @@ func runSetup() error {
 	fmt.Println(strings.Repeat("=", 50))
 
 	fmt.Printf("\nConfiguration directory: %s\n", paths.Home)
-	fmt.Printf("Default PHP version: 8.2\n")
+	fmt.Printf("Default PHP version: 8.3\n")
 
 	fmt.Println("\n📚 Try it out:")
 	fmt.Println("  mkdir -p ~/sites/myapp/public")
 	fmt.Println("  echo '<?php phpinfo(); ?>' > ~/sites/myapp/public/index.php")
 	fmt.Println("  cd ~/sites")
 	fmt.Println("  sudo phppark park")
-	fmt.Println("  curl -H 'Host: myapp.test' http://localhost")
+	fmt.Println("  sudo phppark trust")
+	fmt.Println("  curl http://myapp.test")
 
 	fmt.Println("\n💡 Tip: Run 'phppark status' to see your configuration")
 

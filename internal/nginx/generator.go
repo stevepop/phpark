@@ -11,7 +11,7 @@ import (
 // GetPHPSocket returns the PHP-FPM socket path for a given PHP version
 func GetPHPSocket(phpVersion string) string {
 	if phpVersion == "" {
-		phpVersion = "8.2" // Default
+		phpVersion = "8.3" // Default
 	}
 	return fmt.Sprintf("/var/run/php/php%s-fpm.sock", phpVersion)
 }
@@ -51,7 +51,7 @@ func GenerateConfig(cfg *SiteConfig) (string, error) {
 // CreateSiteConfig creates a SiteConfig from basic site information
 func CreateSiteConfig(siteName, sitePath, domain, phpVersion string, useSSL bool) *SiteConfig {
 	if phpVersion == "" {
-		phpVersion = "8.2" // Default
+		phpVersion = "8.3" // Default
 	}
 
 	serverName := fmt.Sprintf("%s.%s", siteName, domain)

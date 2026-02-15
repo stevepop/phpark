@@ -34,7 +34,7 @@ wget https://github.com/stevepop/phppark/releases/latest/download/phppark-linux
 chmod +x phppark-linux
 sudo mv phppark-linux /usr/local/bin/phppark
 
-# One-command setup (installs nginx, dnsmasq, PHP 8.2)
+# One-command setup (installs nginx, dnsmasq, PHP 8.3)
 sudo phppark setup
 ```
 
@@ -167,7 +167,7 @@ If you prefer to install dependencies manually:
 sudo apt update
 sudo apt install -y nginx dnsmasq software-properties-common
 sudo add-apt-repository -y ppa:ondrej/php
-sudo apt install -y php8.2-fpm
+sudo apt install -y php8.3-fpm
 
 # Install PHPark
 wget https://github.com/stevepop/phppark/releases/latest/download/phppark-linux
@@ -199,7 +199,7 @@ sudo systemctl status nginx
 phppark php:list
 
 # Verify PHP-FPM is running
-sudo systemctl status php8.2-fpm
+sudo systemctl status php8.3-fpm
 
 # Check site config
 sudo cat /etc/nginx/sites-enabled/mysite.conf
@@ -217,7 +217,7 @@ PHPark stores its configuration in `~/.phppark/` (or `/root/.phppark/` when usin
 Edit `config.yaml` to customize:
 ```yaml
 domain: .test        # Change to .local, .dev, etc.
-defaultPHP: "8.2"   # Default PHP version
+defaultPHP: "8.3"   # Default PHP version
 https: false        # Enable HTTPS by default
 ```
 
