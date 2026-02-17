@@ -65,16 +65,19 @@ func removeLinuxDNS(domain string) error {
 		return fmt.Errorf("failed to remove dnsmasq config: %w", err)
 	}
 
-	// If PHPark previously disabled the systemd-resolved stub, revert it
+	// If PHPark previously disabled the systemd-resolved stub, revert it.
+	// dnsmasq must be stopped FIRST to free port 53 (it binds 0.0.0.0:53,
+	// which includes 127.0.0.53). Without this, systemd-resolved cannot
+	// reclaim 127.0.0.53:53 when its stub listener is re-enabled.
 	if IsSystemdResolvedStubDisabled() {
+		exec.Command("sudo", "systemctl", "stop", "dnsmasq").Run()
 		if err := RevertSystemdResolvedStub(); err != nil {
 			fmt.Printf("   ⚠️  Warning: could not revert systemd-resolved stub: %v\n", err)
 			fmt.Println("   You may want to manually run: sudo systemctl restart systemd-resolved")
 		}
+	} else {
+		exec.Command("sudo", "systemctl", "restart", "dnsmasq").Run()
 	}
-
-	// Restart dnsmasq if it's running
-	exec.Command("sudo", "systemctl", "restart", "dnsmasq").Run()
 
 	return nil
 }
