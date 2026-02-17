@@ -13,6 +13,8 @@ const (
 	resolvedConf             = "/etc/systemd/resolved.conf"
 	systemdResolveResolvConf = "/run/systemd/resolve/resolv.conf"
 	resolvedStubSymlink      = "/run/systemd/resolve/stub-resolv.conf"
+	dnsmasqDropInDir         = "/etc/systemd/system/dnsmasq.service.d"
+	dnsmasqDropIn            = "/etc/systemd/system/dnsmasq.service.d/phpark.conf"
 )
 
 // SetupDNS configures DNS resolution for .test domains
@@ -161,6 +163,31 @@ func DisableSystemdResolvedStub() error {
 		}
 	}
 
+	// 5. Install a systemd drop-in so dnsmasq auto-restarts if it is stopped
+	//    by apt postinstall hooks or a port conflict during daemon-reload.
+	if err := writeDnsmasqRestartDropIn(); err != nil {
+		// Non-fatal — dnsmasq will still work, just won't auto-recover.
+		fmt.Printf("   ⚠️  Warning: could not install dnsmasq restart policy: %v\n", err)
+	}
+
+	return nil
+}
+
+// writeDnsmasqRestartDropIn creates a systemd drop-in that makes dnsmasq
+// automatically restart within 3 seconds if it stops unexpectedly.
+// This prevents apt postinstall hooks from permanently disabling DNS.
+func writeDnsmasqRestartDropIn() error {
+	if err := exec.Command("sudo", "mkdir", "-p", dnsmasqDropInDir).Run(); err != nil {
+		return fmt.Errorf("failed to create drop-in directory: %w", err)
+	}
+	content := "[Service]\nRestart=always\nRestartSec=3\n"
+	cmd := exec.Command("sudo", "tee", dnsmasqDropIn)
+	cmd.Stdin = strings.NewReader(content)
+	cmd.Stdout = io.Discard
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to write drop-in: %w", err)
+	}
+	exec.Command("sudo", "systemctl", "daemon-reload").Run()
 	return nil
 }
 
@@ -185,6 +212,11 @@ func RevertSystemdResolvedStub() error {
 	if err := exec.Command("sudo", "ln", "-sf", resolvedStubSymlink, "/etc/resolv.conf").Run(); err != nil {
 		return fmt.Errorf("failed to restore /etc/resolv.conf: %w", err)
 	}
+
+	// 5. Remove the auto-restart drop-in and reload systemd
+	exec.Command("sudo", "rm", "-f", dnsmasqDropIn).Run()
+	exec.Command("sudo", "rmdir", "--ignore-fail-on-non-empty", dnsmasqDropInDir).Run()
+	exec.Command("sudo", "systemctl", "daemon-reload").Run()
 
 	return nil
 }

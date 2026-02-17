@@ -52,6 +52,9 @@ func InstallPHP(version string) error {
 		fmt.Sprintf("php%s-mbstring", version),
 		fmt.Sprintf("php%s-xml", version),
 		fmt.Sprintf("php%s-zip", version),
+		fmt.Sprintf("php%s-intl", version),  // Filament, Symfony, Carbon
+		fmt.Sprintf("php%s-bcmath", version), // Laravel, financial packages
+		fmt.Sprintf("php%s-gd", version),     // image processing
 	}
 
 	for _, ext := range extensions {
