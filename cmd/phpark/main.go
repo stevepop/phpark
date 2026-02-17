@@ -1327,6 +1327,17 @@ func runTrust() error {
 		}
 	}
 
+	// When the stub is already disabled (resolv.conf is a plain file managed by
+	// PHPark), CheckSystemdResolvedConflict() returns false and
+	// DisableSystemdResolvedStub() is skipped — but phpark.conf may be missing
+	// (e.g. removed by a failed untrust, or written by an older binary under a
+	// different name). Without it dnsmasq has no upstream and forwards to itself.
+	if !dns.CheckSystemdResolvedConflict() {
+		if err := dns.EnsureUpstreamConf(); err != nil {
+			fmt.Printf("⚠️  Warning: could not write dnsmasq upstream config: %v\n", err)
+		}
+	}
+
 	if isConfigured {
 		fmt.Printf("✅ DNS resolver is configured for .%s\n", cfg.Domain)
 	} else {

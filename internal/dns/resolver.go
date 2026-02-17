@@ -39,7 +39,7 @@ func setupLinuxDNS(domain string) error {
 	}
 
 	// Create dnsmasq domain config
-	configPath := fmt.Sprintf("/etc/dnsmasq.d/%s", domain)
+	configPath := fmt.Sprintf("/etc/dnsmasq.d/%s.conf", domain)
 	content := fmt.Sprintf("address=/.%s/127.0.0.1\n", domain)
 
 	// Write config (requires sudo)
@@ -59,7 +59,7 @@ func setupLinuxDNS(domain string) error {
 }
 
 func removeLinuxDNS(domain string) error {
-	configPath := fmt.Sprintf("/etc/dnsmasq.d/%s", domain)
+	configPath := fmt.Sprintf("/etc/dnsmasq.d/%s.conf", domain)
 
 	if err := exec.Command("sudo", "rm", "-f", configPath).Run(); err != nil {
 		return fmt.Errorf("failed to remove dnsmasq config: %w", err)
@@ -83,7 +83,7 @@ func removeLinuxDNS(domain string) error {
 }
 
 func checkLinuxDNS(domain string) (bool, error) {
-	configPath := fmt.Sprintf("/etc/dnsmasq.d/%s", domain)
+	configPath := fmt.Sprintf("/etc/dnsmasq.d/%s.conf", domain)
 	_, err := os.Stat(configPath)
 	return err == nil, nil
 }
@@ -263,6 +263,25 @@ func setDNSStubListener(value string) error {
 	cmd.Stdout = io.Discard
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to write %s: %w", resolvedConf, err)
+	}
+	return nil
+}
+
+// EnsureUpstreamConf writes /etc/dnsmasq.d/phpark.conf if it does not already
+// exist. Called during trust when the systemd-resolved stub is already disabled
+// (resolv.conf is already a plain file pointing to 127.0.0.1) so
+// DisableSystemdResolvedStub() is skipped — but phpark.conf may still be missing
+// if it was removed by a failed untrust or an older binary.
+func EnsureUpstreamConf() error {
+	if _, err := os.Stat(phpParkDnsmasqConf); err == nil {
+		return nil // already exists
+	}
+	upstreamConf := buildDnsmasqUpstreamConf()
+	cmd := exec.Command("sudo", "tee", phpParkDnsmasqConf)
+	cmd.Stdin = strings.NewReader(upstreamConf)
+	cmd.Stdout = io.Discard
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to write dnsmasq upstream config: %w", err)
 	}
 	return nil
 }
