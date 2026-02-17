@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	phpParkDnsmasqConf       = "/etc/dnsmasq.d/phppark.conf"
+	phpParkDnsmasqConf       = "/etc/dnsmasq.d/phpark.conf"
 	resolvedConf             = "/etc/systemd/resolved.conf"
 	systemdResolveResolvConf = "/run/systemd/resolve/resolv.conf"
 	resolvedStubSymlink      = "/run/systemd/resolve/stub-resolv.conf"
@@ -100,7 +100,7 @@ func CheckSystemdResolvedConflict() bool {
 }
 
 // IsSystemdResolvedStubDisabled returns true if PHPark has previously disabled
-// the stub listener (indicated by the presence of phppark.conf).
+// the stub listener (indicated by the presence of phpark.conf).
 func IsSystemdResolvedStubDisabled() bool {
 	_, err := os.Stat(phpParkDnsmasqConf)
 	return err == nil
@@ -127,7 +127,7 @@ func DisableSystemdResolvedStub() error {
 		return fmt.Errorf("failed to restart systemd-resolved: %w", err)
 	}
 
-	// 3. Write /etc/dnsmasq.d/phppark.conf pointing dnsmasq at systemd-resolved's
+	// 3. Write /etc/dnsmasq.d/phpark.conf pointing dnsmasq at systemd-resolved's
 	//    live upstream file. This prevents a loop: without this, dnsmasq would read
 	//    /etc/resolv.conf (which we're about to set to 127.0.0.1) and forward to itself.
 	upstreamConf := buildDnsmasqUpstreamConf()
@@ -162,7 +162,7 @@ func DisableSystemdResolvedStub() error {
 }
 
 // RevertSystemdResolvedStub reverses the changes made by DisableSystemdResolvedStub:
-// it re-enables the stub listener, restores /etc/resolv.conf, and removes phppark.conf.
+// it re-enables the stub listener, restores /etc/resolv.conf, and removes phpark.conf.
 func RevertSystemdResolvedStub() error {
 	// 1. Remove the DNSStubListener=no line from resolved.conf
 	if err := setDNSStubListener(""); err != nil {
@@ -186,7 +186,7 @@ func RevertSystemdResolvedStub() error {
 	return nil
 }
 
-// buildDnsmasqUpstreamConf returns the content for /etc/dnsmasq.d/phppark.conf.
+// buildDnsmasqUpstreamConf returns the content for /etc/dnsmasq.d/phpark.conf.
 // Uses systemd-resolved's live resolver file as upstream when available so that
 // VPN, DHCP, and NetworkManager DNS changes are automatically picked up.
 // Falls back to public DNS if the file is not yet available.

@@ -1,4 +1,4 @@
-module github.com/stevepop/phppark
+module github.com/stevepop/phpark
 
 go 1.22.1
 

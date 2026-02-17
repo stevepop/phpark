@@ -71,7 +71,7 @@ func CreateSiteConfig(siteName, sitePath, domain, phpVersion string, useSSL bool
 	}
 
 	if useSSL {
-		certDir := fmt.Sprintf("/home/%s/.phppark/certificates", os.Getenv("USER"))
+		certDir := fmt.Sprintf("/home/%s/.phpark/certificates", os.Getenv("USER"))
 		cfg.CertPath = filepath.Join(certDir, fmt.Sprintf("%s.crt", siteName))
 		cfg.KeyPath = filepath.Join(certDir, fmt.Sprintf("%s.key", siteName))
 	}

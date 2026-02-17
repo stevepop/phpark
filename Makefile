@@ -1,7 +1,7 @@
 .PHONY: build install clean test build-linux run help
 
 # Variables
-BINARY_NAME=phppark
+BINARY_NAME=phpark
 VERSION=$(shell git describe --tags --always --dirty)
 BUILD_DIR=dist
 GO_FILES=$(shell find . -name '*.go' -type f)
@@ -12,12 +12,12 @@ all: build
 # Build for current platform
 build: $(GO_FILES)
 	@echo "Building $(BINARY_NAME)..."
-	go build -ldflags="-X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/phppark
+	go build -ldflags="-X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/phpark
 
 # Build for Linux
 build-linux:
 	@echo "Building for Linux..."
-	GOOS=linux GOARCH=amd64 go build -ldflags="-X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux ./cmd/phppark
+	GOOS=linux GOARCH=amd64 go build -ldflags="-X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux ./cmd/phpark
 
 # Install dependencies
 deps:

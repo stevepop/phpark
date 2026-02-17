@@ -9,19 +9,19 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/stevepop/phppark/internal/config"
-	"github.com/stevepop/phppark/internal/dns"
-	"github.com/stevepop/phppark/internal/nginx"
-	"github.com/stevepop/phppark/internal/php"
-	"github.com/stevepop/phppark/internal/services"
-	"github.com/stevepop/phppark/internal/ssl"
+	"github.com/stevepop/phpark/internal/config"
+	"github.com/stevepop/phpark/internal/dns"
+	"github.com/stevepop/phpark/internal/nginx"
+	"github.com/stevepop/phpark/internal/php"
+	"github.com/stevepop/phpark/internal/services"
+	"github.com/stevepop/phpark/internal/ssl"
 )
 
 var version = "0.1.0-dev"
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:     "phppark",
+		Use:     "phpark",
 		Short:   "PHPark - Development environment manager for Linux",
 		Long:    `A modern development environment manager for Linux inspired by Laravel Valet.`,
 		Version: version,
@@ -122,7 +122,7 @@ func runInstall() error {
 		for _, dep := range missingDeps {
 			fmt.Printf("   - %s\n", dep)
 		}
-		fmt.Println("\n💡 Quick install: Run 'sudo phppark setup' to install everything")
+		fmt.Println("\n💡 Quick install: Run 'sudo phpark setup' to install everything")
 		fmt.Println("   Or install manually: sudo apt install nginx dnsmasq php8.2-fpm")
 		return nil
 	}
@@ -145,9 +145,9 @@ func runInstall() error {
 	}
 
 	fmt.Println("\n📚 Next steps:")
-	fmt.Println("  1. Review/edit config: cat ~/.phppark/config.yaml")
-	fmt.Println("  2. Park a directory: phppark park ~/sites")
-	fmt.Println("  3. Link a site: phppark link myapp")
+	fmt.Println("  1. Review/edit config: cat ~/.phpark/config.yaml")
+	fmt.Println("  2. Park a directory: phpark park ~/sites")
+	fmt.Println("  3. Link a site: phpark link myapp")
 
 	return nil
 }
@@ -165,7 +165,7 @@ func setupCmd() *cobra.Command {
 
 func runSetup() error {
 	if os.Getuid() != 0 {
-		return fmt.Errorf("setup must be run as root: use 'sudo phppark setup'")
+		return fmt.Errorf("setup must be run as root: use 'sudo phpark setup'")
 	}
 
 	fmt.Println("🚀 PHPark Complete Setup")
@@ -294,11 +294,11 @@ func runSetup() error {
 	fmt.Println("  mkdir -p ~/sites/myapp/public")
 	fmt.Println("  echo '<?php phpinfo(); ?>' > ~/sites/myapp/public/index.php")
 	fmt.Println("  cd ~/sites")
-	fmt.Println("  sudo phppark park")
-	fmt.Println("  sudo phppark trust")
+	fmt.Println("  sudo phpark park")
+	fmt.Println("  sudo phpark trust")
 	fmt.Println("  curl http://myapp.test")
 
-	fmt.Println("\n💡 Tip: Run 'phppark status' to see your configuration")
+	fmt.Println("\n💡 Tip: Run 'phpark status' to see your configuration")
 
 	return nil
 }
@@ -482,7 +482,7 @@ func runLink(name string) error {
 		fmt.Printf("⚠️  Site '%s' already exists:\n", name)
 		fmt.Printf("   Current path: %s\n", existing.Path)
 		fmt.Printf("   New path:     %s\n", currentDir)
-		fmt.Println("\nTo update, unlink first: phppark unlink", name)
+		fmt.Println("\nTo update, unlink first: phpark unlink", name)
 		return nil
 	}
 
@@ -619,8 +619,8 @@ func runLinks() error {
 	if len(allSites) == 0 {
 		fmt.Println("📋 No sites registered yet.")
 		fmt.Println("\nTo add sites:")
-		fmt.Println("  phppark park ~/sites    # Park a directory")
-		fmt.Println("  phppark link myapp      # Link current directory")
+		fmt.Println("  phpark park ~/sites    # Park a directory")
+		fmt.Println("  phpark link myapp      # Link current directory")
 		return nil
 	}
 
@@ -710,7 +710,7 @@ func generateNginxConfig(site *config.Site, cfg *config.Config) error {
 	// Deploy to nginx
 	if err := services.DeployNginxConfig(site.Name, configPath); err != nil {
 		fmt.Printf("   ⚠️  Warning: Could not deploy to nginx: %v\n", err)
-		fmt.Println("   Run manually: sudo cp ~/.phppark/nginx/*.conf /etc/nginx/sites-available/")
+		fmt.Println("   Run manually: sudo cp ~/.phpark/nginx/*.conf /etc/nginx/sites-available/")
 	} else {
 		fmt.Printf("   ✅ Deployed to nginx\n")
 	}
@@ -1083,7 +1083,7 @@ func runUse(phpVersion, siteName string) error {
 		}
 
 		fmt.Println("\nNew sites will use PHP", phpVersion)
-		fmt.Println("To update existing sites, run: sudo phppark rebuild")
+		fmt.Println("To update existing sites, run: sudo phpark rebuild")
 		fmt.Println("\n💡 Verify CLI change: php -v")
 
 		return nil
@@ -1109,7 +1109,7 @@ func runUse(phpVersion, siteName string) error {
 	}
 
 	fmt.Printf("✅ Set PHP %s for %s.%s\n", phpVersion, siteName, cfg.Domain)
-	fmt.Println("\n⚠️  Note: Run 'sudo phppark rebuild' to apply changes")
+	fmt.Println("\n⚠️  Note: Run 'sudo phpark rebuild' to apply changes")
 
 	return nil
 }
@@ -1140,7 +1140,7 @@ func runStatus() error {
 		fmt.Printf("✅ PHPark is installed at %s\n", paths.Home)
 	} else {
 		fmt.Printf("❌ PHPark is not installed\n")
-		fmt.Println("   Run: phppark install")
+		fmt.Println("   Run: phpark install")
 		return nil
 	}
 
@@ -1260,7 +1260,7 @@ func runStatus() error {
 	}
 
 	fmt.Println("\n" + strings.Repeat("─", 50))
-	fmt.Println("Run 'phppark links' to see all registered sites")
+	fmt.Println("Run 'phpark links' to see all registered sites")
 
 	// DNS Configuration
 	fmt.Println("\n=== DNS ===")
@@ -1272,7 +1272,7 @@ func runStatus() error {
 			fmt.Printf("Status:      ✅ Configured for .%s\n", cfg.Domain)
 		} else {
 			fmt.Printf("Status:      ❌ Not configured\n")
-			fmt.Println("Setup:       Run 'phppark trust'")
+			fmt.Println("Setup:       Run 'phpark trust'")
 		}
 	}
 

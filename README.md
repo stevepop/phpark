@@ -4,12 +4,12 @@ A modern development environment manager for Linux - inspired by Laravel Valet a
 
 Manage multiple PHP applications with automatic Nginx configuration, instant PHP version switching, and `.test` domain support - all from a simple CLI.
 
-[![Release](https://img.shields.io/github/v/release/stevepop/phppark)](https://github.com/stevepop/phppark/releases)
+[![Release](https://img.shields.io/github/v/release/stevepop/phpark)](https://github.com/stevepop/phpark/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## Features
 
-- 🚀 **One-Command Setup**: Install everything (nginx, dnsmasq, PHP) with `phppark setup`
+- 🚀 **One-Command Setup**: Install everything (nginx, dnsmasq, PHP) with `phpark setup`
 - 🐘 **Multiple PHP Versions**: Auto-install and switch between PHP 7.4, 8.0, 8.1, 8.2, 8.3, 8.4
 - ⚡ **Instant Switching**: Changes PHP version immediately for both sites and CLI
 - 🔧 **Auto-Deploy**: Automatic Nginx config generation and deployment
@@ -30,12 +30,12 @@ PHPark eliminates the manual setup traditionally required for PHP development on
 **On Ubuntu/Debian:**
 ```bash
 # Download latest release
-wget https://github.com/stevepop/phppark/releases/latest/download/phppark-linux
-chmod +x phppark-linux
-sudo mv phppark-linux /usr/local/bin/phppark
+wget https://github.com/stevepop/phpark/releases/latest/download/phpark-linux
+chmod +x phpark-linux
+sudo mv phpark-linux /usr/local/bin/phpark
 
 # One-command setup (installs nginx, dnsmasq, PHP 8.3)
-sudo phppark setup
+sudo phpark setup
 ```
 
 ### Create Your First Site
@@ -46,10 +46,10 @@ echo '<?php phpinfo();' > ~/sites/myapp/public/index.php
 
 # Park it (auto-configures everything)
 cd ~/sites
-sudo phppark park
+sudo phpark park
 
 # Set up DNS so .test domains resolve
-sudo phppark trust
+sudo phpark trust
 
 # Done! Your site is running at myapp.test
 curl http://myapp.test
@@ -59,48 +59,48 @@ curl http://myapp.test
 
 ### Site Management
 ```bash
-phppark park [path]          # Serve all subdirectories as sites
-phppark link [name]          # Link current directory as a site
-phppark unlink [name]        # Remove a site
-phppark links                # List all sites
-phppark rebuild              # Rebuild all nginx configs
+phpark park [path]          # Serve all subdirectories as sites
+phpark link [name]          # Link current directory as a site
+phpark unlink [name]        # Remove a site
+phpark links                # List all sites
+phpark rebuild              # Rebuild all nginx configs
 ```
 
 ### PHP Version Management
 ```bash
-phppark use 8.3              # Switch PHP version globally (sites + CLI)
-phppark use 8.2 mysite       # Switch PHP version for specific site
-phppark php:list             # List available PHP versions
+phpark use 8.3              # Switch PHP version globally (sites + CLI)
+phpark use 8.2 mysite       # Switch PHP version for specific site
+phpark php:list             # List available PHP versions
 ```
 
 **PHPark automatically installs any PHP version you request!** No manual setup needed.
 
 ### SSL
 ```bash
-phppark secure [site]        # Add HTTPS to site
-phppark unsecure [site]      # Remove HTTPS from site
+phpark secure [site]        # Add HTTPS to site
+phpark unsecure [site]      # Remove HTTPS from site
 ```
 
 ### DNS
 ```bash
-phppark trust                # Setup DNS resolution for .test domains
-phppark untrust              # Remove DNS configuration
+phpark trust                # Setup DNS resolution for .test domains
+phpark untrust              # Remove DNS configuration
 ```
 
 ### System
 ```bash
-phppark status               # Show PHPark configuration and system info
-phppark install              # Initialize PHPark configuration
-phppark setup                # Complete system setup (recommended)
+phpark status               # Show PHPark configuration and system info
+phpark install              # Initialize PHPark configuration
+phpark setup                # Complete system setup (recommended)
 ```
 
 ## Complete Workflow Example
 ```bash
 # 1. One-time setup (on fresh Ubuntu)
-sudo phppark setup
+sudo phpark setup
 
 # 2. Set up DNS so .test domains resolve
-sudo phppark trust
+sudo phpark trust
 
 # 3. Create your first app
 mkdir -p ~/sites/blog/public
@@ -108,23 +108,23 @@ echo '<?php phpinfo();' > ~/sites/blog/public/index.php
 
 # 4. Park the sites directory
 cd ~/sites
-sudo phppark park
+sudo phpark park
 
 # 5. Your site is ready at blog.test!
 curl http://blog.test
 
 # 6. Need a different PHP version?
-sudo phppark use 8.3         # Switches globally (CLI + sites)
-sudo phppark rebuild         # Apply to existing sites
+sudo phpark use 8.3         # Switches globally (CLI + sites)
+sudo phpark rebuild         # Apply to existing sites
 
 # 7. Create another app with specific PHP version
 mkdir -p ~/sites/api/public
 cd ~/sites/api
-sudo phppark link api
-sudo phppark use 8.2 api     # This site uses PHP 8.2
+sudo phpark link api
+sudo phpark use 8.2 api     # This site uses PHP 8.2
 
 # 8. Add HTTPS
-sudo phppark secure blog
+sudo phpark secure blog
 
 # Your sites:
 # - https://blog.test (PHP 8.3)
@@ -170,12 +170,12 @@ sudo add-apt-repository -y ppa:ondrej/php
 sudo apt install -y php8.3-fpm
 
 # Install PHPark
-wget https://github.com/stevepop/phppark/releases/latest/download/phppark-linux
-chmod +x phppark-linux
-sudo mv phppark-linux /usr/local/bin/phppark
+wget https://github.com/stevepop/phpark/releases/latest/download/phpark-linux
+chmod +x phpark-linux
+sudo mv phpark-linux /usr/local/bin/phpark
 
 # Initialize
-sudo phppark install
+sudo phpark install
 ```
 
 ## Troubleshooting
@@ -183,10 +183,10 @@ sudo phppark install
 ### Sites not accessible
 ```bash
 # Check status
-sudo phppark status
+sudo phpark status
 
 # Rebuild configs
-sudo phppark rebuild
+sudo phpark rebuild
 
 # Verify nginx
 sudo nginx -t
@@ -196,7 +196,7 @@ sudo systemctl status nginx
 ### PHP version not switching
 ```bash
 # Check available versions
-phppark php:list
+phpark php:list
 
 # Verify PHP-FPM is running
 sudo systemctl status php8.3-fpm
@@ -207,7 +207,7 @@ sudo cat /etc/nginx/sites-enabled/mysite.conf
 
 ## Configuration
 
-PHPark stores its configuration in `~/.phppark/` (or `/root/.phppark/` when using sudo):
+PHPark stores its configuration in `~/.phpark/` (or `/root/.phpark/` when using sudo):
 
 - `config.yaml` - Main configuration
 - `sites.json` - Registered sites

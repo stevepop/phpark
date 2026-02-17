@@ -7,7 +7,7 @@ import (
 
 const (
 	// AppName is the application name
-	AppName = "phppark"
+	AppName = "phpark"
 
 	// ConfigFileName is the main config file
 	ConfigFileName = "config.yaml"
@@ -18,12 +18,12 @@ const (
 
 // Paths holds all PHPark directory and file paths
 type Paths struct {
-	Home         string // ~/.phppark
-	Config       string // ~/.phppark/config.yaml
-	Sites        string // ~/.phppark/sites.json
-	Nginx        string // ~/.phppark/nginx (generated configs)
-	Certificates string // ~/.phppark/certificates (SSL certs)
-	Logs         string // ~/.phppark/logs
+	Home         string // ~/.phpark
+	Config       string // ~/.phpark/config.yaml
+	Sites        string // ~/.phpark/sites.json
+	Nginx        string // ~/.phpark/nginx (generated configs)
+	Certificates string // ~/.phpark/certificates (SSL certs)
+	Logs         string // ~/.phpark/logs
 }
 
 // GetPaths returns all PHPark paths
