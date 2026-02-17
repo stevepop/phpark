@@ -174,6 +174,7 @@ func runSetup() error {
 	fmt.Println("  • nginx (web server)")
 	fmt.Println("  • dnsmasq (DNS resolver)")
 	fmt.Println("  • PHP 8.3-FPM (with common extensions)")
+	fmt.Println("  • Composer (PHP dependency manager)")
 	fmt.Println("  • PHPark configuration")
 	fmt.Printf("\nContinue? (Y/n): ")
 
@@ -223,6 +224,14 @@ func runSetup() error {
 	fmt.Println("\n📦 Installing PHP 8.3-FPM...")
 	if err := php.InstallPHP("8.3"); err != nil {
 		return fmt.Errorf("failed to install PHP: %w", err)
+	}
+
+	// Install Composer — must happen before DisableSystemdResolvedStub() since
+	// it downloads from getcomposer.org and needs working external DNS.
+	fmt.Println("\n📦 Installing Composer...")
+	if err := php.InstallComposer(); err != nil {
+		fmt.Printf("⚠️  Warning: Could not install Composer: %v\n", err)
+		fmt.Println("   Install manually: https://getcomposer.org/download/")
 	}
 
 	// Now that all packages are installed (no more network ops needed), disable

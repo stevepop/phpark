@@ -101,6 +101,34 @@ func addSuryPHPRepo() error {
 	return nil
 }
 
+// InstallComposer installs Composer globally if not already present.
+// Downloads from getcomposer.org — must be called before DisableSystemdResolvedStub().
+func InstallComposer() error {
+	if _, err := exec.LookPath("composer"); err == nil {
+		fmt.Println("✅ Composer already installed")
+		return nil
+	}
+
+	fmt.Println("📥 Installing Composer...")
+
+	// Download the installer via PHP
+	dl := exec.Command("php", "-r", "copy('https://getcomposer.org/installer', '/tmp/composer-setup.php');")
+	if out, err := dl.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to download Composer installer: %w\n   %s", err, strings.TrimSpace(string(out)))
+	}
+
+	// Run the installer
+	install := exec.Command("php", "/tmp/composer-setup.php", "--install-dir=/usr/local/bin", "--filename=composer")
+	if out, err := install.CombinedOutput(); err != nil {
+		exec.Command("rm", "-f", "/tmp/composer-setup.php").Run()
+		return fmt.Errorf("failed to install Composer: %w\n   %s", err, strings.TrimSpace(string(out)))
+	}
+
+	exec.Command("rm", "-f", "/tmp/composer-setup.php").Run()
+	fmt.Println("✅ Composer installed")
+	return nil
+}
+
 // PromptInstallPHP asks user if they want to install a PHP version
 func PromptInstallPHP(version string) (bool, error) {
 	fmt.Printf("\n⚠️  PHP %s is not installed.\n", version)
