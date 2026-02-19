@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 )
 
@@ -22,6 +23,17 @@ func FixSitePermissions(sitePath string) error {
 	// Fix permissions on site directory and contents
 	if err := fixDirectoryPermissions(absPath); err != nil {
 		return fmt.Errorf("failed to fix directory permissions: %w", err)
+	}
+
+	// Laravel/Symfony: give www-data group write access to writable directories.
+	// php-fpm runs as www-data and needs to write cache, sessions, and logs.
+	writableDirs := []string{"storage", "bootstrap/cache"}
+	for _, dir := range writableDirs {
+		fullPath := filepath.Join(absPath, dir)
+		if _, err := os.Stat(fullPath); err == nil {
+			exec.Command("chgrp", "-R", "www-data", fullPath).Run()
+			exec.Command("chmod", "-R", "775", fullPath).Run()
+		}
 	}
 
 	return nil
