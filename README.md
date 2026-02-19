@@ -23,8 +23,6 @@ Manage multiple PHP applications with automatic Nginx configuration, instant PHP
 
 PHPark eliminates the manual setup traditionally required for PHP development on Linux. No more editing nginx configs, managing PHP-FPM pools, or wrestling with file permissions. Just park your projects and start coding.
 
-> **Pre-release:** PHPark is currently in pre-release testing. Download the latest release candidate from the [releases page](https://github.com/stevepop/phpark/releases) rather than using the `latest` URL below, which only resolves once a stable release is published.
-
 ## Quick Start
 
 ### Installation
