@@ -222,14 +222,50 @@ func RevertSystemdResolvedStub() error {
 }
 
 // buildDnsmasqUpstreamConf returns the content for /etc/dnsmasq.d/phpark.conf.
-// Uses systemd-resolved's live resolver file as upstream when available so that
-// VPN, DHCP, and NetworkManager DNS changes are automatically picked up.
-// Falls back to public DNS if the file is not yet available.
+// It reads real upstream nameservers from systemd-resolved's non-stub resolver
+// file (so VPN/DHCP changes are picked up), then always appends explicit public
+// DNS fallbacks. This prevents a hard DNS failure if the systemd file is
+// temporarily stale or still contains the old stub address (127.0.0.53).
 func buildDnsmasqUpstreamConf() string {
-	if _, err := os.Stat(systemdResolveResolvConf); err == nil {
-		return fmt.Sprintf("# Managed by PHPark\nresolv-file=%s\n", systemdResolveResolvConf)
+	var b strings.Builder
+	b.WriteString("# Managed by PHPark\n")
+
+	// Read upstream servers from systemd-resolved's live (non-stub) file.
+	// Filter out loopback addresses — they would cause a forwarding loop.
+	for _, ns := range extractNameservers(systemdResolveResolvConf) {
+		fmt.Fprintf(&b, "server=%s\n", ns)
 	}
-	return "# Managed by PHPark\nserver=8.8.8.8\nserver=1.1.1.1\n"
+
+	// Always include public fallbacks so external DNS works even if the
+	// systemd file is unavailable, empty, or contains only loopback entries.
+	b.WriteString("server=8.8.8.8\n")
+	b.WriteString("server=1.1.1.1\n")
+
+	return b.String()
+}
+
+// extractNameservers parses a resolv.conf-format file and returns all
+// non-loopback nameserver addresses found in it.
+func extractNameservers(resolvFile string) []string {
+	data, err := os.ReadFile(resolvFile)
+	if err != nil {
+		return nil
+	}
+	seen := make(map[string]bool)
+	var servers []string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "nameserver ") {
+			continue
+		}
+		ns := strings.TrimSpace(strings.TrimPrefix(line, "nameserver "))
+		if strings.HasPrefix(ns, "127.") || seen[ns] {
+			continue // skip loopback and duplicates
+		}
+		seen[ns] = true
+		servers = append(servers, ns)
+	}
+	return servers
 }
 
 // setDNSStubListener writes or removes the DNSStubListener setting in

@@ -43,3 +43,5 @@ test-*
 Dockerfile.test
 docker-test.sh
 dist/phppark-linux
+
+*.gz

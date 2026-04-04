@@ -9,14 +9,14 @@ Manage multiple PHP applications with automatic Nginx configuration, instant PHP
 
 ## Features
 
-- 🚀 **One-Command Setup**: Install everything (nginx, dnsmasq, PHP) with `phpark setup`
+- 🚀 **One-Command Setup**: Install everything (nginx, dnsmasq, PHP) with `sudo phpark setup`
 - 🐘 **Multiple PHP Versions**: Auto-install and switch between PHP 7.4, 8.0, 8.1, 8.2, 8.3, 8.4
 - ⚡ **Instant Switching**: Changes PHP version immediately for both sites and CLI
 - 🔧 **Auto-Deploy**: Automatic Nginx config generation and deployment
 - 🌐 **`.test` Domains**: Automatic local domain resolution
 - 🔒 **SSL Support**: Self-signed certificates for HTTPS development
 - 🔐 **Auto-Permissions**: Automatic permission fixes for served directories
-- 📦 **Zero Configuration**: Just install and start building
+- 📦 **Minimal sudo**: Only setup and DNS commands require sudo
 - ⚙️ **Service Management**: Auto-start and manage nginx and PHP-FPM
 
 ## Why PHPark?
@@ -34,11 +34,12 @@ PHPark eliminates the manual setup traditionally required for PHP development on
 # Download latest release
 wget https://github.com/stevepop/phpark/releases/latest/download/phpark-linux
 chmod +x phpark-linux
-sudo mv phpark-linux /usr/local/bin/phpark
 
-# One-command setup (installs nginx, dnsmasq, PHP 8.3)
-sudo phpark setup
+# One-command setup (installs nginx, dnsmasq, PHP 8.3, and adds phpark to your PATH)
+sudo ./phpark-linux setup
 ```
+
+`setup` installs `phpark` to `/usr/local/bin` automatically — no manual move needed.
 
 ### Create Your First Site
 ```bash
@@ -46,11 +47,10 @@ sudo phpark setup
 mkdir -p ~/sites/myapp/public
 echo '<?php phpinfo();' > ~/sites/myapp/public/index.php
 
-# Park it (auto-configures everything)
-cd ~/sites
-sudo phpark park
+# Park the parent directory (no sudo needed)
+phpark park ~/sites
 
-# Set up DNS so .test domains resolve
+# Set up DNS so .test domains resolve (requires sudo - modifies /etc/dnsmasq.d)
 sudo phpark trust
 
 # Done! Your site is running at myapp.test
@@ -85,16 +85,26 @@ phpark unsecure [site]      # Remove HTTPS from site
 
 ### DNS
 ```bash
-phpark trust                # Setup DNS resolution for .test domains
-phpark untrust              # Remove DNS configuration
+sudo phpark trust           # Setup DNS resolution for .test domains
+sudo phpark untrust         # Remove DNS configuration
 ```
 
 ### System
 ```bash
 phpark status               # Show PHPark configuration and system info
 phpark install              # Initialize PHPark configuration
-phpark setup                # Complete system setup (recommended)
+sudo phpark setup           # Complete system setup (recommended)
 ```
+
+## sudo Requirements
+
+Only two commands require `sudo` — everything else runs as your normal user:
+
+| Command | Needs sudo? | Reason |
+|---|---|---|
+| `setup` | Yes (once) | Installs packages, configures nginx and sudoers |
+| `trust` / `untrust` | Yes | Writes to `/etc/dnsmasq.d` |
+| All other commands | **No** | Config and nginx files live in `~/.phpark/` |
 
 ## Complete Workflow Example
 ```bash
@@ -109,24 +119,23 @@ mkdir -p ~/sites/blog/public
 echo '<?php phpinfo();' > ~/sites/blog/public/index.php
 
 # 4. Park the sites directory
-cd ~/sites
-sudo phpark park
+phpark park ~/sites
 
 # 5. Your site is ready at blog.test!
 curl http://blog.test
 
 # 6. Need a different PHP version?
-sudo phpark use 8.3         # Switches globally (CLI + sites)
-sudo phpark rebuild         # Apply to existing sites
+phpark use 8.3              # Switches globally (CLI + sites)
+phpark rebuild              # Apply to existing sites
 
-# 7. Create another app with specific PHP version
+# 7. Create another app with a specific PHP version
 mkdir -p ~/sites/api/public
 cd ~/sites/api
-sudo phpark link api
-sudo phpark use 8.2 api     # This site uses PHP 8.2
+phpark link api
+phpark use 8.2 api          # This site uses PHP 8.2
 
 # 8. Add HTTPS
-sudo phpark secure blog
+phpark secure blog
 
 # Your sites:
 # - https://blog.test (PHP 8.3)
@@ -137,9 +146,9 @@ sudo phpark secure blog
 
 PHPark automates your entire PHP development environment:
 
-1. **Automatic Nginx Configuration**: Generates and deploys nginx configs with optimal settings
+1. **Automatic Nginx Configuration**: Generates nginx configs into `~/.phpark/nginx/` and nginx loads them via a single include added during setup
 2. **Permission Management**: Fixes directory permissions automatically so nginx can serve your files
-3. **Service Management**: Starts and restarts nginx and PHP-FPM as needed
+3. **Service Management**: Starts and restarts nginx and PHP-FPM as needed (via passwordless sudo entries written at setup)
 4. **Smart PHP Installation**: Detects missing PHP versions and installs them on demand
 5. **Instant CLI Switching**: Updates your system PHP CLI version immediately
 6. **DNS Resolution**: Configures dnsmasq for seamless `.test` domain routing
@@ -149,6 +158,7 @@ PHPark automates your entire PHP development environment:
 ## What Makes PHPark Different
 
 - **Truly Zero-Config**: From bare Ubuntu to working sites in under 2 minutes
+- **Minimal Privilege**: Only initial setup and DNS changes require sudo — daily use does not
 - **Intelligent Automation**: Auto-installs dependencies, fixes permissions, manages services
 - **Production-Grade Configs**: Optimized nginx configurations for Laravel, Symfony, and all PHP frameworks
 - **Developer-Friendly**: Helpful error messages, clear status reporting, intuitive commands
@@ -157,13 +167,13 @@ PHPark automates your entire PHP development environment:
 ## Requirements
 
 - Ubuntu 20.04+ or Debian-based Linux
-- `sudo` access (for nginx/service management)
+- `sudo` access (required for initial setup and DNS configuration only)
 
 That's it! PHPark installs everything else automatically.
 
 ## Manual Installation (Advanced)
 
-If you prefer to install dependencies manually:
+If you prefer to install dependencies manually before running setup:
 ```bash
 # Install dependencies
 sudo apt update
@@ -171,13 +181,10 @@ sudo apt install -y nginx dnsmasq software-properties-common
 sudo add-apt-repository -y ppa:ondrej/php
 sudo apt install -y php8.3-fpm
 
-# Install PHPark
+# Download PHPark and run setup (skips already-installed packages)
 wget https://github.com/stevepop/phpark/releases/latest/download/phpark-linux
 chmod +x phpark-linux
-sudo mv phpark-linux /usr/local/bin/phpark
-
-# Initialize
-sudo phpark install
+sudo ./phpark-linux setup
 ```
 
 ## Troubleshooting
@@ -185,14 +192,17 @@ sudo phpark install
 ### Sites not accessible
 ```bash
 # Check status
-sudo phpark status
+phpark status
 
 # Rebuild configs
-sudo phpark rebuild
+phpark rebuild
 
 # Verify nginx
 sudo nginx -t
 sudo systemctl status nginx
+
+# Check generated site config
+cat ~/.phpark/nginx/mysite.conf
 ```
 
 ### PHP version not switching
@@ -202,18 +212,27 @@ phpark php:list
 
 # Verify PHP-FPM is running
 sudo systemctl status php8.3-fpm
+```
 
-# Check site config
-sudo cat /etc/nginx/sites-enabled/mysite.conf
+### DNS not resolving
+```bash
+# Re-run trust
+sudo phpark trust
+
+# Check dnsmasq is running
+sudo systemctl status dnsmasq
+
+# Verify upstream DNS is configured
+cat /etc/dnsmasq.d/phpark.conf
 ```
 
 ## Configuration
 
-PHPark stores its configuration in `~/.phpark/` (or `/root/.phpark/` when using sudo):
+PHPark stores its configuration in `~/.phpark/`:
 
 - `config.yaml` - Main configuration
 - `sites.json` - Registered sites
-- `nginx/` - Generated nginx configs
+- `nginx/` - Generated nginx configs (loaded automatically by nginx)
 - `certificates/` - SSL certificates
 
 Edit `config.yaml` to customize:
@@ -238,6 +257,7 @@ All core features implemented and production-validated:
 - [x] Service orchestration (nginx, PHP-FPM)
 - [x] Site parking and linking
 - [x] Per-site PHP version control
+- [x] Minimal sudo — daily use requires no elevated privileges
 
 ## Roadmap
 

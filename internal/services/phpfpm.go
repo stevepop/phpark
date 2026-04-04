@@ -17,13 +17,13 @@ func StartPHPFPM(version string) error {
 	}
 
 	// Start service
-	cmd = exec.Command("systemctl", "start", serviceName)
+	cmd = exec.Command("sudo", "systemctl", "start", serviceName)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to start %s: %w", serviceName, err)
 	}
 
 	// Enable on boot
-	cmd = exec.Command("systemctl", "enable", serviceName)
+	cmd = exec.Command("sudo", "systemctl", "enable", serviceName)
 	cmd.Run() // Non-fatal
 
 	return nil

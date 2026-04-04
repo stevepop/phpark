@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -47,6 +49,85 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// getRealUser returns the username and home directory of the actual user,
+// resolving SUDO_USER when the process was launched via sudo.
+func getRealUser() (username, homeDir string, err error) {
+	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" {
+		u, err := user.Lookup(sudoUser)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to look up user %s: %w", sudoUser, err)
+		}
+		return u.Username, u.HomeDir, nil
+	}
+	u, err := user.Current()
+	if err != nil {
+		return "", "", err
+	}
+	return u.Username, u.HomeDir, nil
+}
+
+// setupNginxInclude writes /etc/nginx/conf.d/phpark.conf so nginx automatically
+// loads all site configs from ~/.phpark/nginx/. Called once during setup (as root).
+func setupNginxInclude(nginxConfigDir string) error {
+	content := fmt.Sprintf("# PHPark - do not edit manually\ninclude %s/*.conf;\n", nginxConfigDir)
+	if err := os.WriteFile("/etc/nginx/conf.d/phpark.conf", []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to write nginx include: %w", err)
+	}
+	return nil
+}
+
+// setupSudoers writes /etc/sudoers.d/phpark granting the given user passwordless
+// access to the specific commands PHPark needs after initial setup.
+func setupSudoers(username string) error {
+	systemctlPath, err := exec.LookPath("systemctl")
+	if err != nil {
+		systemctlPath = "/usr/bin/systemctl"
+	}
+	updateAltPath, err := exec.LookPath("update-alternatives")
+	if err != nil {
+		updateAltPath = "/usr/bin/update-alternatives"
+	}
+
+	content := fmt.Sprintf(
+		"# PHPark - do not edit manually\n"+
+			"%s ALL=(ALL) NOPASSWD: %s reload nginx\n"+
+			"%s ALL=(ALL) NOPASSWD: %s start nginx\n"+
+			"%s ALL=(ALL) NOPASSWD: %s enable nginx\n"+
+			"%s ALL=(ALL) NOPASSWD: %s start php*-fpm\n"+
+			"%s ALL=(ALL) NOPASSWD: %s enable php*-fpm\n"+
+			"%s ALL=(ALL) NOPASSWD: %s --set php *\n",
+		username, systemctlPath,
+		username, systemctlPath,
+		username, systemctlPath,
+		username, systemctlPath,
+		username, systemctlPath,
+		username, updateAltPath,
+	)
+
+	if err := os.WriteFile("/etc/sudoers.d/phpark", []byte(content), 0440); err != nil {
+		return fmt.Errorf("failed to write sudoers: %w", err)
+	}
+	return nil
+}
+
+// installBinary copies the running executable to dst with mode 0755.
+func installBinary(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	return err
 }
 
 func installCmd() *cobra.Command {
@@ -276,6 +357,14 @@ func runSetup() error {
 		return fmt.Errorf("failed to save sites: %w", err)
 	}
 
+	// Fix ownership of ~/.phpark (dirs + all files written above) so the real
+	// user can read and write their config without sudo.
+	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" {
+		if err := exec.Command("chown", "-R", sudoUser+":"+sudoUser, paths.Home).Run(); err != nil {
+			fmt.Printf("⚠️  Warning: Could not fix directory ownership: %v\n", err)
+		}
+	}
+
 	// Start services
 	fmt.Println("\n🔧 Starting services...")
 
@@ -291,6 +380,44 @@ func runSetup() error {
 		fmt.Println("✅ PHP 8.3-FPM started")
 	}
 
+	// Configure nginx include so site configs are loaded from ~/.phpark/nginx/
+	fmt.Println("\n🔧 Configuring nginx include...")
+	realUsername, realHome, err := getRealUser()
+	if err != nil {
+		fmt.Printf("⚠️  Warning: Could not determine real user: %v\n", err)
+	} else {
+		realNginxDir := filepath.Join(realHome, ".phpark", "nginx")
+		if err := setupNginxInclude(realNginxDir); err != nil {
+			fmt.Printf("⚠️  Warning: Could not configure nginx include: %v\n", err)
+		} else {
+			fmt.Println("✅ nginx configured to load PHPark site configs")
+		}
+
+		// Write sudoers so the user can reload nginx and manage php-fpm without sudo
+		fmt.Println("\n🔧 Configuring sudoers...")
+		if err := setupSudoers(realUsername); err != nil {
+			fmt.Printf("⚠️  Warning: Could not configure sudoers: %v\n", err)
+		} else {
+			fmt.Printf("✅ Passwordless sudo configured for %s (nginx, php-fpm)\n", realUsername)
+		}
+	}
+
+	// Reload nginx to pick up the new include
+	if err := services.ReloadNginx(); err != nil {
+		fmt.Printf("⚠️  Warning: Could not reload nginx: %v\n", err)
+	}
+
+	// Install binary to /usr/local/bin so users can run 'phpark' from anywhere
+	fmt.Println("\n🔧 Installing phpark binary...")
+	if exePath, err := os.Executable(); err == nil {
+		if err := installBinary(exePath, "/usr/local/bin/phpark"); err != nil {
+			fmt.Printf("⚠️  Warning: Could not install binary: %v\n", err)
+			fmt.Printf("   Install manually: sudo cp %s /usr/local/bin/phpark\n", exePath)
+		} else {
+			fmt.Println("✅ phpark installed to /usr/local/bin/phpark")
+		}
+	}
+
 	// Success message
 	fmt.Println("\n" + strings.Repeat("=", 50))
 	fmt.Println("✅ Setup complete!")
@@ -303,8 +430,8 @@ func runSetup() error {
 	fmt.Println("  mkdir -p ~/sites/myapp/public")
 	fmt.Println("  echo '<?php phpinfo(); ?>' > ~/sites/myapp/public/index.php")
 	fmt.Println("  cd ~/sites")
-	fmt.Println("  sudo phpark park")
-	fmt.Println("  sudo phpark trust")
+	fmt.Println("  phpark park")
+	fmt.Println("  phpark trust")
 	fmt.Println("  curl http://myapp.test")
 
 	fmt.Println("\n💡 Tip: Run 'phpark status' to see your configuration")
@@ -588,10 +715,11 @@ func runUnlink(siteName string) error {
 	}
 	fmt.Println("   🗑️  Removed nginx config")
 
-	if err := services.RemoveNginxConfig(siteName); err != nil {
-		fmt.Printf("   ⚠️  Warning: Could not remove from nginx: %v\n", err)
+	// Reload nginx to apply the removal
+	if err := services.ReloadNginx(); err != nil {
+		fmt.Printf("   ⚠️  Warning: Could not reload nginx: %v\n", err)
 	} else {
-		fmt.Println("   ✅ Removed from nginx")
+		fmt.Println("   ✅ Nginx reloaded")
 	}
 
 	// Remove from registry
@@ -716,12 +844,11 @@ func generateNginxConfig(site *config.Site, cfg *config.Config) error {
 		fmt.Printf("   ⚠️  Warning: Could not fix permissions: %v\n", err)
 	}
 
-	// Deploy to nginx
-	if err := services.DeployNginxConfig(site.Name, configPath); err != nil {
-		fmt.Printf("   ⚠️  Warning: Could not deploy to nginx: %v\n", err)
-		fmt.Println("   Run manually: sudo cp ~/.phpark/nginx/*.conf /etc/nginx/sites-available/")
+	// Reload nginx to pick up the new config from ~/.phpark/nginx/
+	if err := services.ReloadNginx(); err != nil {
+		fmt.Printf("   ⚠️  Warning: Could not reload nginx: %v\n", err)
 	} else {
-		fmt.Printf("   ✅ Deployed to nginx\n")
+		fmt.Printf("   ✅ Nginx reloaded\n")
 	}
 
 	// Start PHP-FPM
@@ -1082,7 +1209,7 @@ func runUse(phpVersion, siteName string) error {
 
 		// Switch CLI PHP version
 		phpPath := fmt.Sprintf("/usr/bin/php%s", phpVersion)
-		cmd := exec.Command("update-alternatives", "--set", "php", phpPath)
+		cmd := exec.Command("sudo", "update-alternatives", "--set", "php", phpPath)
 		if err := cmd.Run(); err != nil {
 			fmt.Printf("\n⚠️  Warning: Could not update CLI PHP: %v\n", err)
 			fmt.Printf("   Sites will use PHP %s via PHP-FPM\n", phpVersion)
@@ -1092,7 +1219,7 @@ func runUse(phpVersion, siteName string) error {
 		}
 
 		fmt.Println("\nNew sites will use PHP", phpVersion)
-		fmt.Println("To update existing sites, run: sudo phpark rebuild")
+		fmt.Println("To update existing sites, run: phpark rebuild")
 		fmt.Println("\n💡 Verify CLI change: php -v")
 
 		return nil
@@ -1118,7 +1245,7 @@ func runUse(phpVersion, siteName string) error {
 	}
 
 	fmt.Printf("✅ Set PHP %s for %s.%s\n", phpVersion, siteName, cfg.Domain)
-	fmt.Println("\n⚠️  Note: Run 'sudo phpark rebuild' to apply changes")
+	fmt.Println("\n⚠️  Note: Run 'phpark rebuild' to apply changes")
 
 	return nil
 }

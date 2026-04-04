@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"os/user"
 	"path/filepath"
 )
 
@@ -26,9 +27,21 @@ type Paths struct {
 	Logs         string // ~/.phpark/logs
 }
 
+// getEffectiveHomeDir returns the real user's home directory.
+// When running via sudo, it returns SUDO_USER's home instead of /root,
+// so PHPark config ends up in the real user's home.
+func getEffectiveHomeDir() (string, error) {
+	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" {
+		if u, err := user.Lookup(sudoUser); err == nil {
+			return u.HomeDir, nil
+		}
+	}
+	return os.UserHomeDir()
+}
+
 // GetPaths returns all PHPark paths
 func GetPaths() (*Paths, error) {
-	homeDir, err := os.UserHomeDir()
+	homeDir, err := getEffectiveHomeDir()
 	if err != nil {
 		return nil, err
 	}
